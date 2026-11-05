@@ -11,7 +11,7 @@ Requires Ruby 3.2 or newer. From a local checkout, build and install the gem:
 
 ```sh
 gem build sie-analysis.gemspec
-gem install ./sie-analysis-1.0.0.gem
+gem install ./sie-analysis-1.1.0.gem
 ```
 
 Load an export and create an analyzer:
@@ -77,7 +77,15 @@ report[:income_statement][:groups].map { |group| group.slice(:code, :label, :amo
 
 Use `dimension: :cost_center` for cost centers. `account_movements` accepts the
 same dimensions, with `dimension_code: "ABC"` to select an object.
-`analysis.available_dimensions` lists the available symbols. The export must contain the relevant object balances;
+`analysis.available_dimensions` lists standard names as symbols and other dimensions
+as integers. Supported names are `:cost_center` (1), `:cost_bearer` (2), `:project` (6),
+`:employee` (7), `:customer` (8), `:supplier` (9), and `:invoice` (10).
+Any dimension can also be selected by its SIE number, for example `dimension: 20`.
+Declared dimensions and dimensions referenced in objects, balances, budgets or
+transactions are included, even without monthly balances.
+`document.dimensions` maps declared numbers to names, e.g. `{ 20 => "Department" }`;
+`document.vouchers.first.lines.first.objects` contains pairs such as `[[20, "A"]]`.
+The export must contain the relevant object balances;
 balance-sheet totals are omitted for dimension reports.
 
 ## Inspect the postings on an account

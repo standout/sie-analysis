@@ -20,7 +20,7 @@ module SieAnalysis
 
     def budget_row(month, key, raw, dimension)
       account, dim, code = dimension_parts(key)
-      return unless dim == (dimension && Analysis::DIMENSIONS.fetch(dimension))
+      return unless dim == (dimension && dimension_number(dimension))
 
       group = Groups.for_account(account)
       return unless income_group?(group)

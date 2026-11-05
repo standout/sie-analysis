@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module SieAnalysis
-  # Cost-center / project income and account-row builders for Analysis.
+  # Income and account-row builders for any SIE dimension.
   module DimensionStatements
     private
 
     def dimension_income_groups(months, dimension)
-      dim_no = Analysis::DIMENSIONS.fetch(dimension)
+      dim_no = dimension_number(dimension)
       totals = accumulate_dimension_totals(months, dim_no)
       groups = dimension_group_rows(totals, dim_no)
       revenue = totals.values.sum { |values| values[:revenue] }
@@ -56,7 +56,7 @@ module SieAnalysis
     end
 
     def dimension_account_rows(month, dimension)
-      dim_no = Analysis::DIMENSIONS.fetch(dimension)
+      dim_no = dimension_number(dimension)
       rows = []
       (@parsed.period_changes[month] || {}).each do |key, raw|
         account, dim, code = dimension_parts(key)
