@@ -11,7 +11,7 @@ Requires Ruby 3.2 or newer. From a local checkout, build and install the gem:
 
 ```sh
 gem build sie-analysis.gemspec
-gem install ./sie-analysis-0.1.1.gem
+gem install ./sie-analysis-1.0.0.gem
 ```
 
 Load an export and create an analyzer:
