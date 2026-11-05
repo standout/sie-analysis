@@ -15,7 +15,12 @@ module SieAnalysis
     CURRENCY = "SEK"
     DIMENSIONS = {
       cost_center: 1,
-      project: 6
+      cost_bearer: 2,
+      project: 6,
+      employee: 7,
+      customer: 8,
+      supplier: 9,
+      invoice: 10
     }.freeze
 
     # @param document [Parser::Parsed] a decoded and parsed SIE export
@@ -26,7 +31,7 @@ module SieAnalysis
     # Summarizes all calendar months touched by the inclusive date range.
     # @param from [Date] first date
     # @param to [Date] last date
-    # @param dimension [Symbol, nil] :project or :cost_center
+    # @param dimension [Symbol, Integer, nil] standard dimension name or SIE dimension number
     # @return [Hash] income statement, balance sheet, budget, monthly totals and notes
     def overview(from:, to:, dimension: nil)
       start_date, end_date = from, to
@@ -57,7 +62,7 @@ module SieAnalysis
     # @param month [String] YYYY-MM
     # @param group_code [String, nil] report group, e.g. "revenue"
     # @param account_number [Integer, nil] BAS account number
-    # @param dimension [Symbol, nil] :project or :cost_center
+    # @param dimension [Symbol, Integer, nil] standard dimension name or SIE dimension number
     # @param dimension_code [String, nil] object code; requires dimension
     # @return [Array<Hash>] account_number, account_name, movement and group/object fields
     def account_movements(month:, group_code: nil, account_number: nil, dimension: nil, dimension_code: nil)
@@ -111,12 +116,19 @@ module SieAnalysis
       end
     end
 
-    # @return [Array<Symbol>] supported dimensions with objects declared in the export
+    # Includes declared dimensions and dimensions referenced by objects, balances or vouchers.
+    # @return [Array<Symbol, Integer>] standard names and other SIE dimension numbers
     def available_dimensions
-      dims = []
-      dims << :cost_center if @parsed.objects.keys.any? { |dim, _code| dim == 1 }
-      dims << :project if @parsed.objects.keys.any? { |dim, _code| dim == 6 }
-      dims
+      numbers = @parsed.dimensions.keys + @parsed.objects.keys.map(&:first)
+      [@parsed.period_changes, @parsed.budgets].each do |periods|
+        periods.each_value do |rows|
+          numbers.concat(rows.keys.filter_map { |key| key[1] if key.is_a?(Array) })
+        end
+      end
+      @parsed.vouchers.each do |voucher|
+        voucher.lines.each { |line| numbers.concat(line.objects.map(&:first)) }
+      end
+      numbers.uniq.sort.map { |number| DIMENSIONS.key(number) || number }
     end
 
     private
@@ -200,9 +212,14 @@ module SieAnalysis
 
     def normalize_dimension(dimension)
       return if dimension.nil?
+      return DIMENSIONS.key(dimension) || dimension if dimension.is_a?(Integer) && dimension.positive?
       raise ArgumentError, "Unsupported dimension" unless DIMENSIONS.key?(dimension)
 
       dimension
+    end
+
+    def dimension_number(dimension)
+      dimension.is_a?(Integer) ? dimension : DIMENSIONS.fetch(dimension)
     end
 
     def normalize_year_month(value)

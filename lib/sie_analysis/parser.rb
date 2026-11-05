@@ -7,13 +7,15 @@ module SieAnalysis
   class Parser
     Record = Data.define(:tag, :fields)
     Voucher = Data.define(:series, :number, :date, :description, :lines)
-    Line = Data.define(:account, :amount)
+    # Voucher line with [dimension number, object code] references.
+    Line = Data.define(:account, :amount, :objects)
 
     # Parsed ledger: monetary values are BigDecimal; voucher dates are Date.
     # Period keys are YYYYMM strings; object keys are [dimension number, code].
+    # Dimensions maps declared dimension numbers to their exported names.
     Parsed = Data.define(
       :accounts, :objects, :opening_balances, :closing_balances, :results, :period_changes,
-      :financial_years, :vouchers, :budgets, :sie_type
+      :financial_years, :vouchers, :budgets, :sie_type, :dimensions
     )
 
     # @param text [String] export text already decoded to UTF-8
@@ -28,6 +30,7 @@ module SieAnalysis
       @text = text.to_s
       @accounts = {}
       @objects = {}
+      @dimensions = {}
       @opening = Hash.new(BigDecimal("0"))
       @closing = Hash.new(BigDecimal("0"))
       @results = Hash.new(BigDecimal("0"))
@@ -50,7 +53,7 @@ module SieAnalysis
       Parsed.new(
         accounts: @accounts, objects: @objects, opening_balances: @opening, closing_balances: @closing,
         results: @results, period_changes: @periods, financial_years: @years, vouchers: @vouchers,
-        budgets: @budgets, sie_type: @sie_type
+        budgets: @budgets, sie_type: @sie_type, dimensions: @dimensions
       )
     rescue ParseError
       raise
@@ -79,6 +82,7 @@ module SieAnalysis
         @sie_type = Integer(record.fields.fetch(0))
       when "KONTO" then apply_account(record.fields)
       when "OBJEKT" then apply_object(record.fields)
+      when "DIM", "UNDERDIM" then apply_dimension(record.fields)
       when "RAR" then apply_year(record.fields)
       when "IB" then apply_balance!(@opening, record.fields)
       when "UB" then apply_balance!(@closing, record.fields)
@@ -100,6 +104,13 @@ module SieAnalysis
       code = unquote(fields[1]).to_s
       name = unquote(fields[2]).to_s
       @objects[[dim, code]] = name if dim && !code.empty?
+    end
+
+    def apply_dimension(fields)
+      number = integer_field(fields[0])
+      raise ArgumentError unless number&.positive?
+
+      @dimensions[number] = unquote(fields.fetch(1))
     end
 
     def apply_year(fields)
@@ -189,7 +200,7 @@ module SieAnalysis
 
       raise ArgumentError if object_field.start_with?("{") && !valid_budget_objects?(object_field)
 
-      @current_voucher[:lines] << Line.new(account:, amount:)
+      @current_voucher[:lines] << Line.new(account:, amount:, objects: object_refs_from(object_field))
     end
 
     def finish_voucher!
