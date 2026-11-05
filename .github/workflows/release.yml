@@ -1,0 +1,28 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+      - name: Verify tag matches gem version
+        run: ruby -r ./lib/sie_analysis/version -e 'abort "Tag must match gem version" unless ENV.fetch("GITHUB_REF_NAME") == "v#{SieAnalysis::VERSION}"'
+      - run: gem build sie-analysis.gemspec
+      - uses: rubygems/configure-rubygems-credentials@a3462e5c07dc676007e359eddef1949756fd3102
+      - run: gem push sie-analysis-*.gem
