@@ -33,7 +33,7 @@ jobs:
             const response = await fetch('https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-              body: JSON.stringify({ jwt, owner: 63173 })
+              body: JSON.stringify({ jwt, owner: "63173" })
             });
             if (!response.ok) throw new Error(`RubyGems OIDC exchange failed: HTTP ${response.status}`);
             const { rubygems_api_key: key } = await response.json();
